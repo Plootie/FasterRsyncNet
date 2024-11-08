@@ -2,7 +2,7 @@
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 
-namespace FasterRsyncNet.Hash.HashingAlgorithms;
+namespace FasterRsyncNet.Hash.HashingAlgorithms.Rolling;
 
 //Undecided if I like this. I almost prefer this being its own field
 public class Adler32(ushort windowSize) : IRollingChecksum
