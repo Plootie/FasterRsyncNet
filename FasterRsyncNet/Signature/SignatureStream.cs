@@ -8,23 +8,26 @@ public class SignatureStream : Stream
 {
     private const int MaxAllowedBytesPerRead = 128 * 1024;
     private const short MinChunkSize = 128;
-    private const short MaxChunkSize = 31*1024;
+    private const short MaxChunkSize = 31 * 1024;
     private const short DefaultChunkSize = 2048;
-    
-    
-    private readonly IRollingChecksum _rollingChecksum;
+
+    private readonly short _chunkSize;
+
     //TODO: Replace this with an interface
     private readonly NonCryptographicHashAlgorithm _nonCryptographicHashAlgorithm;
-    private readonly short _chunkSize;
+
+
+    private readonly IRollingChecksum _rollingChecksum;
     private readonly Stream _underlyingStream;
-    private long _position = 0;
-    
+    private short _bufferedBytes = 0;
+
     //TODO: Remove this. Reference the BufferedStream source for how they buffer their streams.
     private byte[] _outputBuffer = [];
-    private short _bufferedBytes = 0;
-    
+    private readonly long _position = 0;
+
     //TODO: Replace with primary constructor if no additional logic is needed
-    public SignatureStream(Stream inputStream, IRollingChecksum rollingChecksum, NonCryptographicHashAlgorithm hashAlgorithm, short chunkSize)
+    public SignatureStream(Stream inputStream, IRollingChecksum rollingChecksum,
+        NonCryptographicHashAlgorithm hashAlgorithm, short chunkSize)
     {
         _underlyingStream = inputStream;
         _rollingChecksum = rollingChecksum;
@@ -33,19 +36,30 @@ public class SignatureStream : Stream
 
         //TODO: Factor in the header size
         int hashLength = _nonCryptographicHashAlgorithm.HashLengthInBytes;
-        long projectedLength = (_underlyingStream.Length / chunkSize) * hashLength;
+        long projectedLength = _underlyingStream.Length / chunkSize * hashLength;
         Length = projectedLength;
-        
+
         inputStream.Seek(0, SeekOrigin.Begin);
     }
-    
+
+    public override bool CanRead => true;
+    public override bool CanSeek => false;
+    public override bool CanWrite => false;
+    public override long Length { get; }
+
+    public override long Position
+    {
+        get => _position;
+        set => throw new NotSupportedException();
+    }
+
     public override int Read(byte[] buffer, int offset, int count)
     {
         if (count > buffer.Length - offset)
             throw new ArgumentException("Buffer is too small for requested operation.");
         throw new NotImplementedException();
     }
-    
+
     public override void Flush()
     {
         throw new NotImplementedException();
@@ -65,10 +79,4 @@ public class SignatureStream : Stream
     {
         throw new NotImplementedException();
     }
-
-    public override bool CanRead => true;
-    public override bool CanSeek => false;
-    public override bool CanWrite => false;
-    public override long Length { get; }
-    public override long Position { get => _position; set => throw new NotSupportedException(); }
 }

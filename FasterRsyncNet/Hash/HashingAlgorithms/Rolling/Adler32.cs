@@ -29,7 +29,7 @@ public class Adler32(ushort windowSize) : IRollingChecksum
         {
             int bytesToRemove = _byteWindow.Count + block.Length - windowSize;
             for (int i = 0; i < bytesToRemove; i++) _ = _byteWindow.Dequeue();
-            foreach(byte b in block) _byteWindow.Enqueue(b);
+            foreach (byte b in block) _byteWindow.Enqueue(b);
         }
 
         return GetChecksum();
@@ -55,7 +55,7 @@ public class Adler32(ushort windowSize) : IRollingChecksum
         //Note: In our use case we will never need to start from anywhere but 1 due to recomputing the checksum
         uint s1 = 1 & 0xffff;
         uint s2 = 0U;
-        
+
         ref byte @ref = ref MemoryMarshal.GetReference(block);
         nuint index = 0;
         nuint maxIndex = (nuint)(block.Length - BlockSize * BlockSize);
@@ -106,7 +106,7 @@ public class Adler32(ushort windowSize) : IRollingChecksum
             s2 %= Base;
         }
 
-        
+
         return s1 | (s2 << 16);
     }
 }

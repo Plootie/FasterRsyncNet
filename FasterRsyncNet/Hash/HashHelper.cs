@@ -8,13 +8,15 @@ namespace FasterRsyncNet.Hash;
 //TODO: Revisit this system. This feels very inflexible
 public static class HashHelper
 {
-    public static ImmutableDictionary<RollingChecksumType, Type> RollingChecksumMapper = new Dictionary<RollingChecksumType, Type>
-    {
-        { RollingChecksumType.Adler32, typeof(Adler32) }
-    }.ToImmutableDictionary();
+    public static ImmutableDictionary<RollingChecksumType, Type> RollingChecksumMapper =
+        new Dictionary<RollingChecksumType, Type>
+        {
+            { RollingChecksumType.Adler32, typeof(Adler32) }
+        }.ToImmutableDictionary();
 
-    public static ImmutableDictionary<NonCryptographicHashingAlgorithmType, Type> NonCryptographicHashingAlgorithmMapper = new Dictionary<NonCryptographicHashingAlgorithmType, Type>
-    {
-        { NonCryptographicHashingAlgorithmType.XXHash64, typeof(XxHash64) },
-    }.ToImmutableDictionary();
+    public static ImmutableDictionary<NonCryptographicHashingAlgorithmType, Type>
+        NonCryptographicHashingAlgorithmMapper = new Dictionary<NonCryptographicHashingAlgorithmType, Type>
+        {
+            { NonCryptographicHashingAlgorithmType.XXHash64, typeof(XxHash64) }
+        }.ToImmutableDictionary();
 }

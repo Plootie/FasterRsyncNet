@@ -11,5 +11,5 @@ public interface IRollingChecksum
 
 public enum RollingChecksumType
 {
-    Adler32 = 0,
+    Adler32 = 0
 }
