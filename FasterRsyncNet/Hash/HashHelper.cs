@@ -1,4 +1,5 @@
-﻿using System.IO.Hashing;
+﻿using System.Collections.Immutable;
+using System.IO.Hashing;
 using FasterRsyncNet.Hash.HashingAlgorithms.Rolling;
 
 namespace FasterRsyncNet.Hash;
@@ -7,13 +8,13 @@ namespace FasterRsyncNet.Hash;
 //TODO: Revisit this system. This feels very inflexible
 public static class HashHelper
 {
-    private static Dictionary<RollingChecksumType, Type> RollingChecksumMapper = new()
+    public static ImmutableDictionary<RollingChecksumType, Type> RollingChecksumMapper = new Dictionary<RollingChecksumType, Type>
     {
         { RollingChecksumType.Adler32, typeof(Adler32) }
-    };
+    }.ToImmutableDictionary();
 
-    private static Dictionary<NonCryptographicHashingAlgorithmType, Type> NonCryptographicHashingAlgorithmMapper = new()
+    public static ImmutableDictionary<NonCryptographicHashingAlgorithmType, Type> NonCryptographicHashingAlgorithmMapper = new Dictionary<NonCryptographicHashingAlgorithmType, Type>
     {
         { NonCryptographicHashingAlgorithmType.XXHash64, typeof(XxHash64) },
-    };
+    }.ToImmutableDictionary();
 }
