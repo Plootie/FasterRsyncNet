@@ -4,12 +4,9 @@ namespace FasterRsyncNet.Signature;
 
 public interface ISignatureWriter
 {
-    public interface ISignatureWriter
-    {
-        Stream BaseStream { get; }
-        void WriteMetadata(SignatureMetadata metadata);
-        Task WriteMetadataAsync(SignatureMetadata metadata);
-        void WriteChunk(ChunkSignature signature);
-        Task WriteChunkAsync(ChunkSignature signature);
-    }
+    public Stream BaseStream { get; }
+    public void WriteMetadata(SignatureMetadata metadata);
+    public Task WriteMetadataAsync(SignatureMetadata metadata);
+    public void WriteChunk(ChunkSignature signature);
+    public Task WriteChunkAsync(ChunkSignature signature);
 }
