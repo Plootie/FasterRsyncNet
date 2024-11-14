@@ -7,6 +7,8 @@ public class XXHash64 : INonCryptographicHashingAlgorithm
 {
     private readonly XxHash64 _xxHash64 = new();
 
+    public int HashLengthInBytes => _xxHash64.HashLengthInBytes;
+
     public void Append(byte[] source)
     {
         _xxHash64.Append(source);

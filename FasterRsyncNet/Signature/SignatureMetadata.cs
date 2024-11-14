@@ -1,32 +1,24 @@
 ﻿using System.ComponentModel;
+using FasterRsyncNet.Core;
 using FasterRsyncNet.Hash;
 
 namespace FasterRsyncNet.Signature;
 
-public struct SignatureMetadata
+//TODO: Rework this a little. It's pretty clunky to use right now
+public struct SignatureMetadata(
+    byte[] hash,
+    NonCryptographicHashingAlgorithmOption hashingOption,
+    RollingChecksumOption rollingChecksumOption,
+    byte version = SignatureMetadata.SignatureMetadataVersion)
 {
     public const byte SignatureMetadataVersion = 1;
-    public const int SignatureMetadataSize = 3;
+    /// <summary>
+    /// Size of Metadata on disk (Does not include hash size which is variable by implementation)
+    /// </summary>
+    public static int SignatureMetadataSize => FasterRsyncBinaryFormat.SignatureHeader.Length + 3;
 
-    public readonly byte Version;
-    public readonly byte[] Hash;
-    public readonly IRollingChecksum RollingChecksumInstance;
-    public readonly INonCryptographicHashingAlgorithm NonCryptographicHashingAlgorithmInstance;
-
-    public SignatureMetadata(byte[] hash, NonCryptographicHashingAlgorithmType hashingType,
-        RollingChecksumType rollingChecksumType, byte version = SignatureMetadataVersion)
-    {
-        Hash = hash;
-        Version = version;
-
-        Type nonCryptographicHashingAsType = HashHelper.NonCryptographicHashingAlgorithmMapper[hashingType];
-        //Probably the wrong exception type here?
-        RollingChecksumInstance = (IRollingChecksum)(Activator.CreateInstance(nonCryptographicHashingAsType) ??
-                                                     throw new InvalidEnumArgumentException());
-
-        Type rollingChecksumAsType = HashHelper.RollingChecksumMapper[rollingChecksumType];
-        NonCryptographicHashingAlgorithmInstance =
-            (INonCryptographicHashingAlgorithm)(Activator.CreateInstance(rollingChecksumAsType) ??
-                                                throw new InvalidEnumArgumentException());
-    }
+    public readonly byte Version = version;
+    public readonly byte[] Hash = hash;
+    public readonly NonCryptographicHashingAlgorithmOption NonCryptographicHashingAlgorithmOption = hashingOption;
+    public readonly RollingChecksumOption RollingChecksumOption = rollingChecksumOption;
 }

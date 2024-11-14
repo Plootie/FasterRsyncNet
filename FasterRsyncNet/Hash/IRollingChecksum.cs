@@ -2,14 +2,15 @@
 
 public interface IRollingChecksum
 {
-    public RollingChecksumType RollingChecksumType { get; }
+    public RollingChecksumOption RollingChecksumOption { get; }
     public uint Append(ReadOnlySpan<byte> block);
     public void Append(byte add);
     public void Reset();
     public uint GetChecksum();
+    public short WindowSize { get; set; }
 }
 
-public enum RollingChecksumType
+public enum RollingChecksumOption
 {
     Adler32 = 0
 }

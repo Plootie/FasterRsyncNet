@@ -1,11 +1,12 @@
 ﻿using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+using FasterRsyncNet.Signature;
 
 namespace FasterRsyncNet.Hash.HashingAlgorithms.Rolling;
 
 //Undecided if I like this. I almost prefer this being its own field
-public class Adler32(ushort windowSize) : IRollingChecksum
+public class Adler32(short windowSize = SignatureBuilder.DefaultChunkSize) : IRollingChecksum
 {
     //Largest prime that fits inside ushort. There is actually no need for this to be a prime.
     //The creators of Adler32 say the prime helps with mixing or something
@@ -15,19 +16,20 @@ public class Adler32(ushort windowSize) : IRollingChecksum
     private const int MaxBlocksPerLoop = MaxBytesPerLoop / BlockSize;
     private Queue<byte> _byteWindow = new();
 
-    public RollingChecksumType RollingChecksumType => RollingChecksumType.Adler32;
+    public short WindowSize { get; set; } = windowSize;
+    public RollingChecksumOption RollingChecksumOption => RollingChecksumOption.Adler32;
 
     public uint Append(ReadOnlySpan<byte> block)
     {
-        if (block.Length > windowSize)
+        if (block.Length > WindowSize)
         {
             //TODO: Benchmark this against simply looping over the span and enqueuing the bytes one by one
-            byte[] slicedBlock = block.Slice(block.Length - windowSize, windowSize).ToArray();
+            byte[] slicedBlock = block.Slice(block.Length - WindowSize, WindowSize).ToArray();
             _byteWindow = new Queue<byte>(slicedBlock);
         }
         else
         {
-            int bytesToRemove = _byteWindow.Count + block.Length - windowSize;
+            int bytesToRemove = _byteWindow.Count + block.Length - WindowSize;
             for (int i = 0; i < bytesToRemove; i++) _ = _byteWindow.Dequeue();
             foreach (byte b in block) _byteWindow.Enqueue(b);
         }
@@ -37,7 +39,7 @@ public class Adler32(ushort windowSize) : IRollingChecksum
 
     public void Append(byte add)
     {
-        if (_byteWindow.Count + 1 > windowSize) _ = _byteWindow.Dequeue();
+        if (_byteWindow.Count + 1 > WindowSize) _ = _byteWindow.Dequeue();
         _byteWindow.Enqueue(add);
     }
 
@@ -58,7 +60,7 @@ public class Adler32(ushort windowSize) : IRollingChecksum
 
         ref byte @ref = ref MemoryMarshal.GetReference(block);
         nuint index = 0;
-        nuint maxIndex = (nuint)(block.Length - BlockSize * BlockSize);
+        nuint maxIndex = (nuint)(block.Length / BlockSize * BlockSize);
 
         while (index < maxIndex)
         {

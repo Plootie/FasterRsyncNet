@@ -12,9 +12,10 @@ public interface INonCryptographicHashingAlgorithm
     public void GetHashAndReset(Span<byte> destination);
     public bool TryGetCurrentHash(Span<byte> destination, out int bytesWritten);
     public bool TryGetHashAndReset(Span<byte> destination, out int bytesWritten);
+    public int HashLengthInBytes { get; }
 }
 
-public enum NonCryptographicHashingAlgorithmType
+public enum NonCryptographicHashingAlgorithmOption
 {
     XXHash64 = 0
 }
