@@ -5,12 +5,14 @@ using FasterRsyncNet.Hash.HashingAlgorithms.NonCryptographic;
 using FasterRsyncNet.Signature;
 
 using FileStream inputStream = File.Open("testfile.bin", FileMode.Open);
+if(File.Exists("signature.sig"))
+    File.Delete("signature.sig");
 using FileStream outputStream = File.Open("signature.sig", FileMode.OpenOrCreate, FileAccess.ReadWrite);
 
 SignatureBuilder signatureBuilder =
     new(NonCryptographicHashingAlgorithmOption.XXHash64)
     {
-        ChunkSize = 128
+        ChunkSize = SignatureBuilder.MaxChunkSize,
     };
 ISignatureWriter signatureWriter = new SignatureWriter(outputStream);
 

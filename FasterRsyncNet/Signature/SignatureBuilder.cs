@@ -10,7 +10,7 @@ public class SignatureBuilder
     public const short MinChunkSize = 128;
     public const short DefaultChunkSize = 2048;
     //Is this max even sensible?
-    private const short MaxChunkSize = 31 * 1024;
+    public const short MaxChunkSize = 31 * 1024;
 
     private readonly short _chunkSize = DefaultChunkSize;
     //TODO: Storing these along with the instances feels clunky. We should probably rework this
@@ -58,7 +58,8 @@ public class SignatureBuilder
         dataStream.Seek(0, SeekOrigin.Begin);
         
         //TODO: In the future allow configuring of this as well as providing your own buffer
-        int maxChunksPerHeapBuffer = (int)Math.Floor((double)1024*1024*32 / ChunkSize);
+        int optimalBufferSize = Math.Max(8192, (int)ChunkSize);
+        int maxChunksPerHeapBuffer = (int)Math.Floor((double)optimalBufferSize / ChunkSize);
         int bufferLength = ChunkSize * maxChunksPerHeapBuffer;
         byte[] heapBuffer = ArrayPool<byte>.Shared.Rent(bufferLength);
 
@@ -66,12 +67,12 @@ public class SignatureBuilder
         {
             //ArrayPool might return a buffer larger than requested so we need to trim it back down
             Span<byte> buffer = heapBuffer;
-            buffer.Slice(0, bufferLength);
+            buffer = buffer.Slice(0, bufferLength);
             
             int read;
             while ((read = dataStream.Read(buffer)) > 0)
             {
-                Console.WriteLine("Position {0} of {1}. Got {2} bytes", dataStream.Position, dataStream.Length, read);
+                //Console.WriteLine("Position {0} of {1}. Got {2} bytes", dataStream.Position, dataStream.Length, read);
                 int chunksToProcess = (int)Math.Ceiling((double)read / ChunkSize);
                 for (int i = 0; i < chunksToProcess; i++)
                 {
