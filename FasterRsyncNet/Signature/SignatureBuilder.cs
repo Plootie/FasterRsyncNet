@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Diagnostics;
 using FasterRsyncNet.Chunk;
 using FasterRsyncNet.Hash;
 
@@ -76,17 +77,17 @@ public class SignatureBuilder
                 int chunksToProcess = (int)Math.Ceiling((double)read / ChunkSize);
                 for (int i = 0; i < chunksToProcess; i++)
                 {
-                    Span<byte> chunkBytes = buffer.Slice(i * ChunkSize, ChunkSize);
+                    Span<byte> chunkBytes = buffer.Slice(i * ChunkSize, Math.Min(ChunkSize, read - i * ChunkSize));
                     _chunkHasher.Append(chunkBytes);
                     //TODO: This feels like a lot of data to transfer. Would it be better for us to use the hash of the chunk?
-                    _fileHasher.Append(chunkBytes);
                     byte[] chunkHash = _chunkHasher.GetHashAndReset();
+                    _fileHasher.Append(chunkHash);
 
                     ChunkSignature chunkSig = new()
                     {
                         StartOffset = dataStream.Position - ChunkSize,
                         Hash = chunkHash,
-                        Length = (short)read,
+                        Length = (short)chunkBytes.Length,
                     };
             
                     sigWriter.WriteChunk(chunkSig);
