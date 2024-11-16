@@ -73,7 +73,6 @@ public class SignatureBuilder
             int read;
             while ((read = dataStream.Read(buffer)) > 0)
             {
-                //Console.WriteLine("Position {0} of {1}. Got {2} bytes", dataStream.Position, dataStream.Length, read);
                 int chunksToProcess = (int)Math.Ceiling((double)read / ChunkSize);
                 for (int i = 0; i < chunksToProcess; i++)
                 {
