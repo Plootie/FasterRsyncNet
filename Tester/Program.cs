@@ -8,7 +8,7 @@ using FileStream inputStream = File.Open("testfile.bin", FileMode.Open);
 using FileStream outputStream = File.Open("signature.sig", FileMode.OpenOrCreate, FileAccess.ReadWrite);
 
 SignatureBuilder signatureBuilder =
-    new SignatureBuilder(NonCryptographicHashingAlgorithmOption.XXHash64, RollingChecksumOption.Adler32)
+    new(NonCryptographicHashingAlgorithmOption.XXHash64)
     {
         ChunkSize = 128
     };
@@ -18,6 +18,9 @@ Stopwatch timer = Stopwatch.StartNew();
 signatureBuilder.BuildSignature(inputStream, signatureWriter);
 timer.Stop();
 Console.WriteLine("Done! {0}ms / {1}s", timer.ElapsedMilliseconds, timer.ElapsedMilliseconds / 1000);
+
+using MemoryStream ms = new MemoryStream();
+using ISignatureWriter sigWriter = new SignatureWriter(ms);
 
 inputStream.Seek(0, SeekOrigin.Begin);
 ISignatureReader signatureReader = new SignatureReader(outputStream);

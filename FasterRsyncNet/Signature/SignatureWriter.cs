@@ -13,7 +13,6 @@ public class SignatureWriter(Stream signatureStream) : ISignatureWriter, IDispos
         binaryWriter.Write(FasterRsyncBinaryFormat.SignatureHeader.ToArray());
         binaryWriter.Write(metadata.Version);
         binaryWriter.Write((byte)metadata.NonCryptographicHashingAlgorithmOption);
-        binaryWriter.Write((byte)metadata.RollingChecksumOption);
     }
 
     public void WriteMetadata(SignatureMetadata metadata)
@@ -32,18 +31,17 @@ public class SignatureWriter(Stream signatureStream) : ISignatureWriter, IDispos
     private static void WritePartialChunk(BinaryWriter binaryWriter, ChunkSignature chunk)
     {
         binaryWriter.Write(chunk.Length);
-        binaryWriter.Write(chunk.RollingChecksum);
     }
     public void WriteChunk(ChunkSignature chunk)
     {
-        WritePartialChunk(_writer, chunk);
+        _writer.Write(chunk.Length);
         _writer.Write(chunk.Hash);
     }
 
     //TODO: Same as above. I doubt this is helping performance
     public async Task WriteChunkAsync(ChunkSignature chunk)
     {
-        WritePartialChunk(_writer, chunk);
+        _writer.Write(chunk.Length);
         await BaseStream.WriteAsync(chunk.Hash).ConfigureAwait(false);
     }
 

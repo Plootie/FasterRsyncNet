@@ -17,5 +17,6 @@ public interface INonCryptographicHashingAlgorithm
 
 public enum NonCryptographicHashingAlgorithmOption
 {
-    XXHash64 = 0
+    Unknown = 0,
+    XXHash64 = 1
 }

@@ -15,10 +15,8 @@ public class SignatureBuilder
     private readonly short _chunkSize = DefaultChunkSize;
     //TODO: Storing these along with the instances feels clunky. We should probably rework this
     private readonly NonCryptographicHashingAlgorithmOption _hashingAlgorithmOption;
-    private readonly RollingChecksumOption _rollingChecksumOption; 
     private readonly INonCryptographicHashingAlgorithm _chunkHasher;
     private readonly INonCryptographicHashingAlgorithm _fileHasher;
-    private readonly IRollingChecksum _rollingChecksum;
     
     public short ChunkSize
     {
@@ -32,30 +30,23 @@ public class SignatureBuilder
                 _ => value
             };
             //TODO: This feels like a terrible idea. This should be cleaned up
-            _rollingChecksum.WindowSize = _chunkSize;
         }
     }
 
-    public SignatureBuilder(NonCryptographicHashingAlgorithmOption hashingAlgorithmOption, RollingChecksumOption rollingChecksumOption)
+    public SignatureBuilder(NonCryptographicHashingAlgorithmOption hashingAlgorithmOption)
     {
         _hashingAlgorithmOption = hashingAlgorithmOption;
-        _rollingChecksumOption = rollingChecksumOption;
         
         Type hashingAlgorithmType = HashHelper.NonCryptographicHashingAlgorithmMapper[hashingAlgorithmOption];
-        _chunkHasher = (INonCryptographicHashingAlgorithm)(Activator.CreateInstance(hashingAlgorithmType) ?? throw new InvalidOperationException("Could not create an instance of INonCryptographicHashingAlgorithm"));
-        _fileHasher = (INonCryptographicHashingAlgorithm)(Activator.CreateInstance(hashingAlgorithmType) ?? throw new InvalidOperationException("Could not create an instance of INonCryptographicHashingAlgorithm"));
-        
-        Type rollingChecksumType = HashHelper.RollingChecksumMapper[rollingChecksumOption];
-        object[] checksumConstructorParams = [_chunkSize];
-        _rollingChecksum = (IRollingChecksum)(Activator.CreateInstance(rollingChecksumType, checksumConstructorParams) ?? throw new InvalidOperationException("Could not create an instance of IRollingChecksum"));
+        _chunkHasher = HashHelper.InstanceFromType<INonCryptographicHashingAlgorithm>(hashingAlgorithmType);
+        _fileHasher = HashHelper.InstanceFromType<INonCryptographicHashingAlgorithm>(hashingAlgorithmType);
     }
 
     public void BuildSignature(Stream dataStream, ISignatureWriter sigWriter)
     {
         //We cannot know the metadata info before calculating the data ahead so we skip forward and will write at the end
         int hashLength = _chunkHasher.HashLengthInBytes;
-        int writeOffset = SignatureMetadata.SignatureMetadataSize + hashLength;
-        sigWriter.BaseStream.Seek(writeOffset, SeekOrigin.Begin);
+        sigWriter.WriteMetadata(new SignatureMetadata(new byte[hashLength], NonCryptographicHashingAlgorithmOption.Unknown, 0));
         
         WriteChunkSignatures(sigWriter, dataStream);
         sigWriter.BaseStream.Seek(0, SeekOrigin.Begin);
@@ -66,7 +57,8 @@ public class SignatureBuilder
     {
         dataStream.Seek(0, SeekOrigin.Begin);
         
-        int maxChunksPerHeapBuffer = (int)Math.Floor((double)1024*1024*16 / ChunkSize);
+        //TODO: In the future allow configuring of this as well as providing your own buffer
+        int maxChunksPerHeapBuffer = (int)Math.Floor((double)1024*1024*32 / ChunkSize);
         int bufferLength = ChunkSize * maxChunksPerHeapBuffer;
         byte[] heapBuffer = ArrayPool<byte>.Shared.Rent(bufferLength);
 
@@ -88,14 +80,12 @@ public class SignatureBuilder
                     //TODO: This feels like a lot of data to transfer. Would it be better for us to use the hash of the chunk?
                     _fileHasher.Append(chunkBytes);
                     byte[] chunkHash = _chunkHasher.GetHashAndReset();
-                    uint rollingChecksum = _rollingChecksum.Append(chunkBytes);
 
                     ChunkSignature chunkSig = new()
                     {
                         StartOffset = dataStream.Position - ChunkSize,
                         Hash = chunkHash,
                         Length = (short)read,
-                        RollingChecksum = rollingChecksum
                     };
             
                     sigWriter.WriteChunk(chunkSig);
@@ -111,7 +101,7 @@ public class SignatureBuilder
     private void WriteMetadata(ISignatureWriter sigWriter)
     {
         byte[] fileHash = _fileHasher.GetHashAndReset();
-        SignatureMetadata metadata = new(fileHash, _hashingAlgorithmOption, _rollingChecksumOption);
+        SignatureMetadata metadata = new(fileHash, _hashingAlgorithmOption);
         sigWriter.WriteMetadata(metadata);
     }
 }

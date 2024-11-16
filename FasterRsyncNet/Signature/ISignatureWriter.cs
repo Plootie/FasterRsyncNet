@@ -2,7 +2,7 @@
 
 namespace FasterRsyncNet.Signature;
 
-public interface ISignatureWriter
+public interface ISignatureWriter : IDisposable, IAsyncDisposable
 {
     public Stream BaseStream { get; }
     public void WriteMetadata(SignatureMetadata metadata);

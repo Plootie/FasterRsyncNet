@@ -1,7 +1,5 @@
 ﻿using System.Collections.Immutable;
-using System.IO.Hashing;
 using FasterRsyncNet.Hash.HashingAlgorithms.NonCryptographic;
-using FasterRsyncNet.Hash.HashingAlgorithms.Rolling;
 
 namespace FasterRsyncNet.Hash;
 
@@ -9,15 +7,14 @@ namespace FasterRsyncNet.Hash;
 //TODO: Revisit this system. This feels very inflexible
 public static class HashHelper
 {
-    public static readonly ImmutableDictionary<RollingChecksumOption, Type> RollingChecksumMapper =
-        new Dictionary<RollingChecksumOption, Type>
-        {
-            { RollingChecksumOption.Adler32, typeof(Adler32) }
-        }.ToImmutableDictionary();
-
     public static readonly ImmutableDictionary<NonCryptographicHashingAlgorithmOption, Type>
         NonCryptographicHashingAlgorithmMapper = new Dictionary<NonCryptographicHashingAlgorithmOption, Type>
         {
             { NonCryptographicHashingAlgorithmOption.XXHash64, typeof(XXHash64) }
         }.ToImmutableDictionary();
+    
+    public static T InstanceFromType<T>(Type type)
+    {
+        return (T)(Activator.CreateInstance(type) ?? throw new InvalidOperationException($"Could not create an instance of type {type.FullName}."));
+    }
 }

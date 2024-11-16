@@ -15,9 +15,7 @@ public class SignatureStream : Stream
 
     //TODO: Replace this with an interface
     private readonly NonCryptographicHashAlgorithm _nonCryptographicHashAlgorithm;
-
-
-    private readonly IRollingChecksum _rollingChecksum;
+    
     private readonly Stream _underlyingStream;
     private short _bufferedBytes = 0;
 
@@ -26,11 +24,9 @@ public class SignatureStream : Stream
     private readonly long _position = 0;
 
     //TODO: Replace with primary constructor if no additional logic is needed
-    public SignatureStream(Stream inputStream, IRollingChecksum rollingChecksum,
-        NonCryptographicHashAlgorithm hashAlgorithm, short chunkSize)
+    public SignatureStream(Stream inputStream, NonCryptographicHashAlgorithm hashAlgorithm, short chunkSize)
     {
         _underlyingStream = inputStream;
-        _rollingChecksum = rollingChecksum;
         _nonCryptographicHashAlgorithm = hashAlgorithm;
         _chunkSize = chunkSize;
 

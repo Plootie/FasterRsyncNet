@@ -41,16 +41,13 @@ public class SignatureReader(Stream signatureStream) : ISignatureReader, IDispos
 
             NonCryptographicHashingAlgorithmOption
                 ncOption = (NonCryptographicHashingAlgorithmOption)_reader.ReadByte();
-            RollingChecksumOption rollingChecksumOption = (RollingChecksumOption)_reader.ReadByte();
 
             Type ncType = HashHelper.NonCryptographicHashingAlgorithmMapper[ncOption];
             INonCryptographicHashingAlgorithm ncAlgorithm =
-                (INonCryptographicHashingAlgorithm)(Activator.CreateInstance(ncType) ??
-                                                    throw new InvalidOperationException(
-                                                        "Could not create an instance of INonCryptographicHashingAlgorithm"));
+                HashHelper.InstanceFromType<INonCryptographicHashingAlgorithm>(ncType);
             byte[] hash = _reader.ReadBytes(ncAlgorithm.HashLengthInBytes);
 
-            return new SignatureMetadata(hash, ncOption, rollingChecksumOption, metadataVersion);
+            return new SignatureMetadata(hash, ncOption, metadataVersion);
         }
         finally
         {
@@ -72,14 +69,12 @@ public class SignatureReader(Stream signatureStream) : ISignatureReader, IDispos
         for (long i = 0; i < expectedChunks; i++)
         {
             short length = _reader.ReadInt16();
-            uint checksum = _reader.ReadUInt32();
             byte[] hash = _reader.ReadBytes(signature.HashAlgorithm.HashLengthInBytes);
 
             ChunkSignature chunk = new()
             {
                 StartOffset = start,
                 Length = length,
-                RollingChecksum = checksum,
                 Hash = hash
             };
             signatures[i] = chunk;
