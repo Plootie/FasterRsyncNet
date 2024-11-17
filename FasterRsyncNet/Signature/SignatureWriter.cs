@@ -3,7 +3,7 @@ using FasterRsyncNet.Core;
 
 namespace FasterRsyncNet.Signature;
 
-public class SignatureWriter(Stream signatureStream) : ISignatureWriter, IDisposable, IAsyncDisposable
+public class SignatureWriter(Stream signatureStream) : ISignatureWriter
 {
     private readonly BinaryWriter _writer = new(signatureStream);
     public Stream BaseStream { get; } = signatureStream;
@@ -27,11 +27,7 @@ public class SignatureWriter(Stream signatureStream) : ISignatureWriter, IDispos
         WritePartialMetadata(_writer, metadata);
         await BaseStream.WriteAsync(metadata.Hash).ConfigureAwait(false);
     }
-
-    private static void WritePartialChunk(BinaryWriter binaryWriter, ChunkSignature chunk)
-    {
-        binaryWriter.Write(chunk.Length);
-    }
+    
     public void WriteChunk(ChunkSignature chunk)
     {
         _writer.Write(chunk.Length);
