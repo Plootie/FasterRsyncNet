@@ -67,26 +67,27 @@ public class SignatureBuilder
         try
         {
             //ArrayPool might return a buffer larger than requested so we need to trim it back down
-            Span<byte> buffer = heapBuffer;
-            buffer = buffer.Slice(0, bufferLength);
+            Span<byte> fileBuffer = heapBuffer.AsSpan(0, bufferLength);
             
             int read;
-            while ((read = dataStream.Read(buffer)) > 0)
+            while ((read = dataStream.Read(fileBuffer)) > 0)
             {
                 int chunksToProcess = (int)Math.Ceiling((double)read / ChunkSize);
                 for (int i = 0; i < chunksToProcess; i++)
                 {
-                    Span<byte> chunkBytes = buffer.Slice(i * ChunkSize, Math.Min(ChunkSize, read - i * ChunkSize));
+                    int chunkOffset = i * ChunkSize;
+                    int chunkLength = Math.Min(ChunkSize, read - chunkOffset);
+                    Span<byte> chunkBytes = fileBuffer.Slice(chunkOffset, chunkLength);
+                    
                     _chunkHasher.Append(chunkBytes);
-                    //TODO: This feels like a lot of data to transfer. Would it be better for us to use the hash of the chunk?
                     byte[] chunkHash = _chunkHasher.GetHashAndReset();
-                    _fileHasher.Append(chunkHash);
+                    _fileHasher.Append(chunkHash.AsSpan());
 
                     ChunkSignature chunkSig = new()
                     {
                         StartOffset = dataStream.Position - ChunkSize,
                         Hash = chunkHash,
-                        Length = (short)chunkBytes.Length,
+                        Length = (short)chunkLength
                     };
             
                     sigWriter.WriteChunk(chunkSig);
