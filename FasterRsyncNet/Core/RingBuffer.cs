@@ -95,6 +95,8 @@ public class RingBuffer<T> : IEnumerable<T>
 
     public T Peek()
     {
+        if(_size == 0)
+            throw new InvalidOperationException(EmptyBufferExceptionMessage);
         return _buffer[_head];
     }
 
@@ -125,23 +127,44 @@ public class RingBuffer<T> : IEnumerable<T>
 
     public T[] ToArray()
     {
-        if(_size == 0)
-            return [];
-        
         T[] copy = new T[_size];
+        CopyTo(copy);
+        
+        return copy;
+    }
+    
+    public void CopyTo(T[] array, int arrayIndex = 0, int? count = null)
+    {
+        ArgumentNullException.ThrowIfNull(array);
+
+        if (arrayIndex < 0 || arrayIndex >= array.Length)
+            throw new ArgumentOutOfRangeException(nameof(arrayIndex), "Index is out of bounds.");
+
+        int elementsToCopy = count ?? _size;
+
+        if (elementsToCopy < 0 || elementsToCopy > _size)
+            throw new ArgumentOutOfRangeException(nameof(count), "Count must be non-negative and within the size of the buffer.");
+
+        if (elementsToCopy > array.Length - arrayIndex)
+            throw new ArgumentException("The target array does not have enough space to copy the elements.");
+
+        if (elementsToCopy == 0) return;
 
         if (_head < _tail)
         {
-            Array.Copy(_buffer, _head, copy, 0, _size);
+            Array.Copy(_buffer, _head, array, arrayIndex, elementsToCopy);
         }
         else
         {
-            int firstPartLength = _buffer.Length - _head;
-            Array.Copy(_buffer, _head, copy, 0, firstPartLength);
-            Array.Copy(_buffer, 0, copy, firstPartLength, _tail);
+            int firstPartLength = Math.Min(elementsToCopy, _buffer.Length - _head);
+            Array.Copy(_buffer, _head, array, arrayIndex, firstPartLength);
+
+            int secondPartLength = elementsToCopy - firstPartLength;
+            if (secondPartLength > 0)
+            {
+                Array.Copy(_buffer, 0, array, arrayIndex + firstPartLength, secondPartLength);
+            }
         }
-        
-        return copy;
     }
 
     private void WrapCounter(ref int counter)
