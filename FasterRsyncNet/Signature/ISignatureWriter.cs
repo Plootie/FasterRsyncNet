@@ -9,4 +9,5 @@ public interface ISignatureWriter : IDisposable, IAsyncDisposable
     public Task WriteMetadataAsync(SignatureMetadata metadata);
     public void WriteChunk(ChunkSignature signature);
     public Task WriteChunkAsync(ChunkSignature signature);
+    public void WriteFinalChunkData(ChunkSignature chunk);
 }

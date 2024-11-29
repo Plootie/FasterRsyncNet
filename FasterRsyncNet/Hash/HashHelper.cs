@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using FasterRsyncNet.Hash.HashingAlgorithms.NonCryptographic;
+using FasterRsyncNet.Hash.HashingAlgorithms.Rolling;
 
 namespace FasterRsyncNet.Hash;
 
@@ -12,9 +13,15 @@ public static class HashHelper
         {
             { NonCryptographicHashingAlgorithmOption.XXHash64, typeof(XXHash64) }
         }.ToImmutableDictionary();
+
+    public static readonly ImmutableDictionary<RollingChecksumOption, Type>
+        RollingChecksumMapper = new Dictionary<RollingChecksumOption, Type>
+        {
+            { RollingChecksumOption.Adler32, typeof(Adler32) }
+        }.ToImmutableDictionary();
     
-    public static T InstanceFromType<T>(Type type)
+    public static T InstanceFromType<T>(Type type, object[]? args = null)
     {
-        return (T)(Activator.CreateInstance(type) ?? throw new InvalidOperationException($"Could not create an instance of type {type.FullName}."));
+        return (T)(Activator.CreateInstance(type, args:args) ?? throw new InvalidOperationException($"Could not create an instance of type {type.FullName}."));
     }
 }
