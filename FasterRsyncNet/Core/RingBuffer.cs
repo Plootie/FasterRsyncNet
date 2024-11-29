@@ -148,24 +148,39 @@ public class RingBuffer<T> : IEnumerable<T>
         if (elementsToCopy > array.Length - arrayIndex)
             throw new ArgumentException("The target array does not have enough space to copy the elements.");
 
-        if (elementsToCopy == 0) return;
+        CopyTo(array.AsSpan(arrayIndex, elementsToCopy));
+    }
+    
+    public void CopyTo(Span<T> span, int? count = null)
+    {
+        int elementsToCopy = count ?? _size;
+
+        if (elementsToCopy < 0 || elementsToCopy > _size)
+            throw new ArgumentOutOfRangeException(nameof(count), "Count must be non-negative and within the size of the buffer.");
+
+        if (elementsToCopy > span.Length)
+            throw new ArgumentException("The target span does not have enough space to copy the elements.");
+
+        if (elementsToCopy == 0)
+            return;
 
         if (_head < _tail)
         {
-            Array.Copy(_buffer, _head, array, arrayIndex, elementsToCopy);
+            _buffer.AsSpan(_head, elementsToCopy).CopyTo(span);
         }
         else
         {
             int firstPartLength = Math.Min(elementsToCopy, _buffer.Length - _head);
-            Array.Copy(_buffer, _head, array, arrayIndex, firstPartLength);
+            _buffer.AsSpan(_head, firstPartLength).CopyTo(span);
 
             int secondPartLength = elementsToCopy - firstPartLength;
             if (secondPartLength > 0)
             {
-                Array.Copy(_buffer, 0, array, arrayIndex + firstPartLength, secondPartLength);
+                _buffer.AsSpan(0, secondPartLength).CopyTo(span.Slice(firstPartLength));
             }
         }
     }
+
 
     private void WrapCounter(ref int counter)
     {
