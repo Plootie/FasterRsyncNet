@@ -113,6 +113,27 @@ public class RingBuffer<T> : IEnumerable<T>
         set => _buffer[(_head + i) % _buffer.Length] = value;
     }
 
+    public T[] ToArray()
+    {
+        if(_size == 0)
+            return [];
+        
+        T[] copy = new T[_size];
+
+        if (_head < _tail)
+        {
+            Array.Copy(_buffer, _head, copy, 0, _size);
+        }
+        else
+        {
+            int firstPartLength = _buffer.Length - _head;
+            Array.Copy(_buffer, _head, copy, 0, firstPartLength);
+            Array.Copy(_buffer, 0, copy, firstPartLength, _tail);
+        }
+        
+        return copy;
+    }
+
     private void WrapCounter(ref int counter)
     {
         int tmp = counter + 1;
@@ -121,6 +142,4 @@ public class RingBuffer<T> : IEnumerable<T>
         
         counter = tmp;
     }
-    
-    
 }
