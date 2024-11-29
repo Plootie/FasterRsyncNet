@@ -20,6 +20,7 @@ public static class HashHelper
             { RollingChecksumOption.Adler32, typeof(Adler32) }
         }.ToImmutableDictionary();
     
+    //TODO: This is horrifyingly slow for what it does. Look at a better way of creating these classes!
     public static T InstanceFromType<T>(Type type, object[]? args = null)
     {
         return (T)(Activator.CreateInstance(type, args:args) ?? throw new InvalidOperationException($"Could not create an instance of type {type.FullName}."));

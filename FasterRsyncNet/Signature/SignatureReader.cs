@@ -71,9 +71,10 @@ public class SignatureReader(Stream signatureStream) : ISignatureReader, IDispos
         
         long expectedChunks = (int)Math.Floor(remainingBytes / (double)chunkLength);
         ChunkSignature[] signatures = new ChunkSignature[expectedChunks];
+        int hashLength = signature.HashAlgorithm.HashLengthInBytes;
         for (long i = 0; i < expectedChunks - 1; i++)
         {
-            byte[] hash = _reader.ReadBytes(signature.HashAlgorithm.HashLengthInBytes);
+            byte[] hash = _reader.ReadBytes(hashLength);
             uint rollingChecksum = _reader.ReadUInt32();
 
             ChunkSignature chunk = new()
