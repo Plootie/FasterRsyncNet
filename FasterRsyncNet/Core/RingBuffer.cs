@@ -151,32 +151,25 @@ public class RingBuffer<T> : IEnumerable<T>
         CopyTo(array.AsSpan(arrayIndex, elementsToCopy));
     }
     
-    public void CopyTo(Span<T> span, int? count = null)
+    public void CopyTo(Span<T> destination)
     {
-        int elementsToCopy = count ?? _size;
-
-        if (elementsToCopy < 0 || elementsToCopy > _size)
-            throw new ArgumentOutOfRangeException(nameof(count), "Count must be non-negative and within the size of the buffer.");
-
-        if (elementsToCopy > span.Length)
-            throw new ArgumentException("The target span does not have enough space to copy the elements.");
-
-        if (elementsToCopy == 0)
-            return;
-
+        if (destination.Length < _size)
+            throw new ArgumentException("Destination is too short.", nameof(destination));
+        
+        ReadOnlySpan<T> bufferAsSpan = _buffer.AsSpan();
         if (_head < _tail)
         {
-            _buffer.AsSpan(_head, elementsToCopy).CopyTo(span);
+            bufferAsSpan.Slice(_head, _size).CopyTo(destination);
         }
         else
         {
-            int firstPartLength = Math.Min(elementsToCopy, _buffer.Length - _head);
-            _buffer.AsSpan(_head, firstPartLength).CopyTo(span);
+            int firstSegmentLength = _buffer.Length - _head;
+            bufferAsSpan.Slice(_head, firstSegmentLength).CopyTo(destination);
 
-            int secondPartLength = elementsToCopy - firstPartLength;
-            if (secondPartLength > 0)
+            int secondSegmentLength = _size - firstSegmentLength;
+            if (secondSegmentLength > 0)
             {
-                _buffer.AsSpan(0, secondPartLength).CopyTo(span.Slice(firstPartLength));
+                bufferAsSpan.Slice(0, secondSegmentLength).CopyTo(destination[firstSegmentLength..]);
             }
         }
     }
