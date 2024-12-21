@@ -3,11 +3,8 @@
 public interface IRollingChecksum
 {
     public RollingChecksumOption RollingChecksumOption { get; }
-    public uint Append(ReadOnlySpan<byte> block);
-    public void Append(byte add);
-    public void Reset();
-    public uint GetChecksum();
-    public short WindowSize { get; init; }
+    public uint CalculateBlock(ReadOnlySpan<byte> input, uint start = 1);
+    public uint Rotate(uint checksum, byte remove, byte add, int chunkSize);
 }
 
 public enum RollingChecksumOption

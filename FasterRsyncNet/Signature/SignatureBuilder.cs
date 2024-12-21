@@ -32,7 +32,7 @@ public class SignatureBuilder
                 > MaxChunkSize => throw new ArgumentException($"Chunk size cannot be exceed {MaxChunkSize}"),
                 _ => value
             };
-            _rollingChunkHasher = HashHelper.InstanceFromType<IRollingChecksum>(HashHelper.RollingChecksumMapper[_rollingChecksumOption], [_chunkSize]);
+            //_rollingChunkHasher = HashHelper.InstanceFromType<IRollingChecksum>(HashHelper.RollingChecksumMapper[_rollingChecksumOption]);
             //TODO: This feels like a terrible idea. This should be cleaned up
         }
     }
@@ -49,7 +49,7 @@ public class SignatureBuilder
         _fileHasher = HashHelper.InstanceFromType<INonCryptographicHashingAlgorithm>(hashingAlgorithmType);
 
         Type rollingChecksumType = HashHelper.RollingChecksumMapper[rollingChecksumOption];
-        _rollingChunkHasher = HashHelper.InstanceFromType<IRollingChecksum>(rollingChecksumType, [ChunkSize]);
+        _rollingChunkHasher = HashHelper.InstanceFromType<IRollingChecksum>(rollingChecksumType);
     }
 
     public void BuildSignature(Stream dataStream, ISignatureWriter sigWriter)
@@ -95,8 +95,7 @@ public class SignatureBuilder
                     _chunkHasher.Append(chunkBytes);
                     byte[] chunkHash = _chunkHasher.GetHashAndReset();
                     _fileHasher.Append(chunkHash.AsSpan());
-                    uint rollingChecksum = _rollingChunkHasher.Append(chunkBytes);
-                    _rollingChunkHasher.Reset(); //TODO: Revisit this. This shouldn't be needed!
+                    uint rollingChecksum = _rollingChunkHasher.CalculateBlock(chunkBytes);
 
                     ChunkSignature chunkSig = new()
                     {
