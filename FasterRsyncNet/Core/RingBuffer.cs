@@ -2,22 +2,17 @@
 
 namespace FasterRsyncNet.Core;
 
-public class RingBuffer<T> : IEnumerable<T>
+public class RingBuffer<T>(uint capacity) : IEnumerable<T>
 {
     private const string EmptyBufferExceptionMessage = "Ring Buffer is empty.";
     private int _head = 0;
     private int _tail = 0;
     private int _size = 0;
-    private readonly T[] _buffer;
+    private readonly T[] _buffer = new T[capacity];
 
     public int Capacity => _buffer.Length;
     public int Count => _size;
 
-    public RingBuffer(uint capacity)
-    {
-        _buffer = new T[capacity];
-    }
-    
     public IEnumerator<T> GetEnumerator()
     {
         int index = _head;
