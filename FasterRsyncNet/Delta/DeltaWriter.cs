@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Buffers.Binary;
 
 namespace FasterRsyncNet.Delta;
 
@@ -43,8 +44,10 @@ public class DeltaWriter : IDeltaWriter
 
     public void WriteCopyCommand(long position, long length)
     {
-        _binaryWriter.Write(0x60);
-        _binaryWriter.Write(position);
-        _binaryWriter.Write(length);
+        Span<byte> tmpBuffer = stackalloc byte[20];
+        BinaryPrimitives.WriteInt32LittleEndian(tmpBuffer, 0x60);
+        BinaryPrimitives.WriteInt64LittleEndian(tmpBuffer.Slice(4, 8), position);
+        BinaryPrimitives.WriteInt64LittleEndian(tmpBuffer.Slice(12, 8), length);
+        _binaryWriter.Write(tmpBuffer);
     }
 }
