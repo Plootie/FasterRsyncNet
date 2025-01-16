@@ -1,10 +1,10 @@
 ﻿using System.Buffers;
-using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using FasterRsyncNet.Chunk;
 using FasterRsyncNet.Core;
 using FasterRsyncNet.Hash;
-using FasterRsyncNet.Signature;
 
 namespace FasterRsyncNet.Delta;
 
@@ -113,13 +113,17 @@ public class DeltaBuilder
 
     private static bool CompareHashes(ReadOnlySpan<byte> first, ReadOnlySpan<byte> second)
     {
-        bool ret = true;
+        //TODO: Implement a solution that works for more sizes of hashes
+        if(first.Length == 8)
+            return Unsafe.ReadUnaligned<ulong>(ref MemoryMarshal.GetReference(first)) ==
+                   Unsafe.ReadUnaligned<ulong>(ref MemoryMarshal.GetReference(second));
+        
         for (int i = 0; i < first.Length; i++)
         {
-            if(first[i] == second[i]) continue;
-            ret = false;
-            break;
+            if (first[i] != second[i])
+                return false;
         }
-        return ret;
+
+        return true;
     }
 }
