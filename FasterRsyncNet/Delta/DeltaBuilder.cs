@@ -114,6 +114,8 @@ public class DeltaBuilder
                 lastMatch = filePosition;
             }
             
+            //TODO: Perform additional logic to find the "final" chunk, which potentially differs in size from the others
+            //To do this we need to backtrack to the last match and slice forward with a smaller window matching its size
         }
         finally
         {
