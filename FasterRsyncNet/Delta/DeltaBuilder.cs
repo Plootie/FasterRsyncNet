@@ -18,7 +18,17 @@ public class DeltaBuilder
         {
             if (chunkMap.TryGetValue(chunk.RollingChecksum, out List<ChunkSignature>? value))
             {
-                value.Add(chunk);
+                bool unique = true;
+                foreach (ChunkSignature chunkSignature in value)
+                {
+                    //TODO: Remove this. This is a bandaid fix for a larger issue. Duplicate chunks with different positions
+                    //Are all saved in the signature, This is a waste of disk space, memory and CPU time. This should be resolved
+                    if (!CompareHashes(chunkSignature.Hash, chunk.Hash)) continue;
+                    unique = false;
+                    break;
+                }
+                if(unique)
+                    value.Add(chunk);
             }
             else
             {
@@ -56,6 +66,7 @@ public class DeltaBuilder
                 int goalToRead = Math.Min(ringBuffer.Capacity - ringBuffer.Count, normalChunkSize);
                 Span<byte> chunkBuffer = fileBufferSpan.Slice(0, goalToRead);
                 int read = newFileStream.Read(chunkBuffer);
+                filePosition += read;
                 ringBuffer.Add(chunkBuffer);
                 if (read == 0)
                     break;
@@ -90,7 +101,7 @@ public class DeltaBuilder
                 if (!matchingChunk.HasValue)
                     continue;
 
-                long lastMatchGap = newFileStream.Position - lastMatch;
+                long lastMatchGap = filePosition - lastMatch;
                 if (lastMatchGap > normalChunkSize)
                 {
                     deltaWriter.WriteDataCommand(newFileStream, filePosition - lastMatch, lastMatch - normalChunkSize);
@@ -100,7 +111,7 @@ public class DeltaBuilder
 
                 checksum = 1;
                 ringBuffer.Clear();
-                lastMatch = newFileStream.Position;
+                lastMatch = filePosition;
             }
             
         }
