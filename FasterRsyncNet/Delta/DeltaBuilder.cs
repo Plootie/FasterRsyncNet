@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using FasterRsyncNet.Chunk;
 using FasterRsyncNet.Core;
@@ -11,6 +12,7 @@ public class DeltaBuilder
 {
     public void BuildDelta(Stream newFileStream, Signature.Signature fileSignature, IDeltaWriter deltaWriter)
     {
+        Stopwatch stopwatch = Stopwatch.StartNew();
         Dictionary<uint, List<ChunkSignature>> chunkMap = new();
         foreach (ChunkSignature chunk in fileSignature.Chunks)
         {
@@ -23,6 +25,9 @@ public class DeltaBuilder
                 chunkMap.Add(chunk.RollingChecksum, [chunk]);
             }
         }
+
+        stopwatch.Stop();
+        Console.WriteLine("Dictionary build too {0}ms", stopwatch.ElapsedMilliseconds);
 
         INonCryptographicHashingAlgorithm hasher = fileSignature.HashAlgorithm;
         IRollingChecksum roller = fileSignature.RollingChecksum;
@@ -38,77 +43,66 @@ public class DeltaBuilder
         byte[] hashBuffer = ArrayPool<byte>.Shared.Rent(normalChunkSize);
         try
         {
-            Span<byte> fileBufferSpan = heapBuffer.AsSpan(0, optimalBufferSize);
+            Span<byte> fileBufferSpan = heapBuffer.AsSpan(0, normalChunkSize);
             Span<byte> hashBufferSpan = hashBuffer.AsSpan(0, normalChunkSize);
             long lastMatch = newFileStream.Position;
             long filePosition = newFileStream.Position;
             uint checksum = 1;
-            int read;
 
-            RingBuffer<byte> ringARingoBytes = new((uint)normalChunkSize + 1);
-            while ((read = newFileStream.Read(fileBufferSpan)) > 0)
+            RingBuffer<byte> ringBuffer = new((uint)normalChunkSize + 1);
+            while (true)
             {
-                for (int i = 0; i < read; i++)
+                //The idea behind this is if we are coming from a new match we want to read normalChunkSize of bytes in one go
+                int goalToRead = Math.Min(ringBuffer.Capacity - ringBuffer.Count, normalChunkSize);
+                Span<byte> chunkBuffer = fileBufferSpan.Slice(0, goalToRead);
+                int read = newFileStream.Read(chunkBuffer);
+                ringBuffer.Add(chunkBuffer);
+                if (read == 0)
+                    break;
+
+                if (ringBuffer.Count == ringBuffer.Capacity)
                 {
-                    byte newByte = fileBufferSpan[i];
-                    ReadOnlySpan<byte> newBytesAsSpan = fileBufferSpan.Slice(i, 1);
-                    ringARingoBytes.Add(newByte);
-                    filePosition++;
-                    long bytesSinceLastMatch = filePosition - lastMatch;
-                    
-                    //TODO: Rework. There is no point checking the dictionary before we have ChunkSize bytes in the checksum
-                    if (ringARingoBytes.Count == ringARingoBytes.Capacity)
-                    {
-                        checksum = roller.Rotate(checksum, ringARingoBytes.Take(), newByte, normalChunkSize);
-                    }
-                    else
-                    {
-                        checksum = roller.CalculateBlock(newBytesAsSpan, checksum);
-                    }
-                    
-                    //We don't have enough bytes to bother checking
-                    if (bytesSinceLastMatch < normalChunkSize)
-                        continue;
-                    
-                    if (!chunkMap.TryGetValue(checksum, out List<ChunkSignature>? matchingChunks))
-                        continue;
-                    
-                    //Double check that the match is correct
-                    Span<byte> potentialHashMatch = hashBufferSpan.Slice(0, hashLength);
-                    ringARingoBytes.CopyTo(hashBuffer);
-                    hasher.Append(hashBuffer);
-                    hasher.GetHashAndReset(potentialHashMatch);
-
-                    ChunkSignature? matchingChunk = null;
-                    foreach (ChunkSignature chunk in matchingChunks)
-                    {
-                        if (CompareHashes(chunk.Hash, potentialHashMatch))
-                        {
-                            matchingChunk = chunk;
-                            break;
-                        }
-                    }
-
-                    if (!matchingChunk.HasValue)
-                        continue; //Rolling checksum match was just a hash collision
-                    
-                    
-                    //A match has been found. We now need to write all data that preceded this match before writing the copy command
-                    long lastMatchGap = filePosition - lastMatch;
-                    if (lastMatchGap > normalChunkSize)
-                    {
-                        deltaWriter.WriteDataCommand(newFileStream, filePosition - lastMatchGap, normalChunkSize);
-                    }
-                    
-                    //Now we write the copy for the match
-                    deltaWriter.WriteCopyCommand(matchingChunk.Value.StartOffset, matchingChunk.Value.Length);
-                    
-                    //Reset the checksum and the trackers
-                    checksum = 1;
-                    ringARingoBytes.Clear();
-                    lastMatch = filePosition;
+                    checksum = roller.Rotate(checksum, ringBuffer.Take(), chunkBuffer[0], normalChunkSize);
                 }
+                else
+                {
+                    checksum = roller.CalculateBlock(chunkBuffer, checksum);
+                }
+                
+                if(!chunkMap.TryGetValue(checksum, out List<ChunkSignature>? chunks))
+                    continue;
+                
+                Span<byte> potentialHashMatch = hashBufferSpan.Slice(0, hashLength);
+                ringBuffer.CopyTo(hashBufferSpan);
+                hasher.Append(hashBufferSpan);
+                hasher.GetHashAndReset(potentialHashMatch);
+
+                ChunkSignature? matchingChunk = null;
+                foreach (ChunkSignature chunk in chunks)
+                {
+                    if (CompareHashes(chunk.Hash, potentialHashMatch))
+                    {
+                        matchingChunk = chunk;
+                        break;
+                    }
+                }
+
+                if (!matchingChunk.HasValue)
+                    continue;
+
+                long lastMatchGap = newFileStream.Position - lastMatch;
+                if (lastMatchGap > normalChunkSize)
+                {
+                    deltaWriter.WriteDataCommand(newFileStream, filePosition - lastMatch, lastMatch - normalChunkSize);
+                }
+                
+                deltaWriter.WriteCopyCommand(matchingChunk.Value.StartOffset, matchingChunk.Value.Length);
+
+                checksum = 1;
+                ringBuffer.Clear();
+                lastMatch = newFileStream.Position;
             }
+            
         }
         finally
         {
