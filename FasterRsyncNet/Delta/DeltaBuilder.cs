@@ -12,6 +12,7 @@ public class DeltaBuilder
 {
     public void BuildDelta(Stream newFileStream, Signature.Signature fileSignature, IDeltaWriter deltaWriter)
     {
+        #region Dictionary
         Stopwatch stopwatch = Stopwatch.StartNew();
         Dictionary<uint, List<ChunkSignature>> chunkMap = new();
         foreach (ChunkSignature chunk in fileSignature.Chunks)
@@ -38,23 +39,29 @@ public class DeltaBuilder
 
         stopwatch.Stop();
         Console.WriteLine("Dictionary build too {0}ms", stopwatch.ElapsedMilliseconds);
-
+        #endregion
+        
         INonCryptographicHashingAlgorithm hasher = fileSignature.HashAlgorithm;
         IRollingChecksum roller = fileSignature.RollingChecksum;
         
         //Due to how this is calculated all chunks will be the same length except for the last which will be
         //Between 1 and the chunk size
+        #region Setup
         int normalChunkSize = fileSignature.Chunks.First().Length;
         int finalChunkSize = fileSignature.Chunks.Last().Length;
         int hashLength = fileSignature.HashAlgorithm.HashLengthInBytes;
         
         int optimalBufferSize = Math.Max(8192, (int)fileSignature.Chunks[0].Length);
         byte[] heapBuffer = ArrayPool<byte>.Shared.Rent(optimalBufferSize);
-        byte[] hashBuffer = ArrayPool<byte>.Shared.Rent(normalChunkSize);
+        byte[] fileByteBuffer = ArrayPool<byte>.Shared.Rent(normalChunkSize);
+        byte[] fileHashBuffer = ArrayPool<byte>.Shared.Rent(hashLength);
+        #endregion
+        
         try
         {
             Span<byte> fileBufferSpan = heapBuffer.AsSpan(0, normalChunkSize);
-            Span<byte> hashBufferSpan = hashBuffer.AsSpan(0, normalChunkSize);
+            Span<byte> fileByteBufferSpan = fileByteBuffer.AsSpan(0, normalChunkSize);
+            Span<byte> fileHashBufferSpan = fileHashBuffer.AsSpan(0, hashLength);
             long lastMatch = newFileStream.Position;
             long filePosition = newFileStream.Position;
             uint checksum = 1;
@@ -65,9 +72,11 @@ public class DeltaBuilder
                 //The idea behind this is if we are coming from a new match we want to read normalChunkSize of bytes in one go
                 int goalToRead = Math.Min(ringBuffer.Capacity - ringBuffer.Count, normalChunkSize);
                 Span<byte> chunkBuffer = fileBufferSpan.Slice(0, goalToRead);
+                
                 int read = newFileStream.Read(chunkBuffer);
                 filePosition += read;
                 ringBuffer.Add(chunkBuffer);
+                
                 if (read == 0)
                     break;
 
@@ -83,15 +92,14 @@ public class DeltaBuilder
                 if(!chunkMap.TryGetValue(checksum, out List<ChunkSignature>? chunks))
                     continue;
                 
-                Span<byte> potentialHashMatch = hashBufferSpan.Slice(0, hashLength);
-                ringBuffer.CopyTo(hashBufferSpan);
-                hasher.Append(hashBufferSpan);
-                hasher.GetHashAndReset(potentialHashMatch);
+                ringBuffer.CopyTo(fileByteBufferSpan);
+                hasher.Append(fileByteBufferSpan);
+                hasher.GetHashAndReset(fileHashBufferSpan);
 
                 ChunkSignature? matchingChunk = null;
                 foreach (ChunkSignature chunk in chunks)
                 {
-                    if (CompareHashes(chunk.Hash, potentialHashMatch))
+                    if (CompareHashes(chunk.Hash, fileHashBufferSpan))
                     {
                         matchingChunk = chunk;
                         break;
@@ -120,21 +128,32 @@ public class DeltaBuilder
         finally
         {
             ArrayPool<byte>.Shared.Return(heapBuffer);
-            ArrayPool<byte>.Shared.Return(hashBuffer);
+            ArrayPool<byte>.Shared.Return(fileByteBuffer);
+            ArrayPool<byte>.Shared.Return(fileHashBuffer);
         }
     }
 
     private static bool CompareHashes(ReadOnlySpan<byte> first, ReadOnlySpan<byte> second)
     {
-        //TODO: Implement a solution that works for more sizes of hashes
-        if(first.Length == 8)
-            return Unsafe.ReadUnaligned<ulong>(ref MemoryMarshal.GetReference(first)) ==
-                   Unsafe.ReadUnaligned<ulong>(ref MemoryMarshal.GetReference(second));
-        
-        for (int i = 0; i < first.Length; i++)
+        ref byte h1 = ref MemoryMarshal.GetReference(first);
+        ref byte h2 = ref MemoryMarshal.GetReference(second);
+
+        int index = 0;
+        int maxIndex = (first.Length / sizeof(ulong)) * sizeof(ulong);
+        while (index < maxIndex)
         {
-            if (first[i] != second[i])
-                return false;
+            ulong v1 = Unsafe.ReadUnaligned<ulong>(ref Unsafe.Add(ref h1, index));
+            ulong v2 = Unsafe.ReadUnaligned<ulong>(ref Unsafe.Add(ref h2, index));
+            if (v1 != v2) return false;
+            index += sizeof(ulong);
+        }
+
+        for (; index < maxIndex; index++)
+        {
+            byte b1 = Unsafe.Add(ref h1, index);
+            byte b2 = Unsafe.Add(ref h2, index);
+            if (b1 != b2) return false;
+            index += sizeof(byte);
         }
 
         return true;
