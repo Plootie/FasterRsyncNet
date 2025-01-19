@@ -1,5 +1,7 @@
 ﻿using System.Buffers;
 using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace FasterRsyncNet.Delta;
 
@@ -41,13 +43,27 @@ public class DeltaWriter : IDeltaWriter
             source.Seek(originalPosition, SeekOrigin.Begin);
         }
     }
-
+    
     public void WriteCopyCommand(long position, long length)
     {
-        Span<byte> tmpBuffer = stackalloc byte[20];
-        BinaryPrimitives.WriteInt32LittleEndian(tmpBuffer, 0x60);
-        BinaryPrimitives.WriteInt64LittleEndian(tmpBuffer.Slice(4, 8), position);
-        BinaryPrimitives.WriteInt64LittleEndian(tmpBuffer.Slice(12, 8), length);
+        Span<byte> tmpBuffer = stackalloc byte[sizeof(byte) + (sizeof(long) * 2)];
+
+        Span<byte> commandSpan = tmpBuffer.Slice(0, sizeof(byte));
+        Span<byte> positionSpan = tmpBuffer.Slice(sizeof(byte), sizeof(long));
+        Span<byte> lengthSpan = tmpBuffer.Slice(sizeof(byte) + sizeof(long), sizeof(long));
+
+        byte commandByte = 0x60;
+        
+        if (!BitConverter.IsLittleEndian)
+        {
+            position = BinaryPrimitives.ReverseEndianness(position);
+            length = BinaryPrimitives.ReverseEndianness(length);
+        }
+        
+        MemoryMarshal.Write(commandSpan, in commandByte);
+        MemoryMarshal.Write(positionSpan, in position);
+        MemoryMarshal.Write(lengthSpan, in length);
+        
         _binaryWriter.Write(tmpBuffer);
     }
 }
