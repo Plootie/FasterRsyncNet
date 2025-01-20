@@ -64,6 +64,6 @@ public class DeltaWriter : IDeltaWriter
         MemoryMarshal.Write(positionSpan, in position);
         MemoryMarshal.Write(lengthSpan, in length);
         
-        _binaryWriter.Write(tmpBuffer);
+        _deltaStream.Write(tmpBuffer);
     }
 }
