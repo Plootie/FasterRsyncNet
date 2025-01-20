@@ -99,16 +99,7 @@ public class RingBuffer<T>(uint capacity) : IEnumerable<T>
     {
         if (_size == 0) return;
 
-        if (_head < _tail)
-        {
-            Array.Clear(_buffer, _head, _size);
-        }
-        else
-        {
-            int firstPartLength = _buffer.Length - _head;
-            Array.Clear(_buffer, _head, firstPartLength);
-            Array.Clear(_buffer, 0, _tail);
-        }
+        Array.Clear(_buffer);
         
         _head = _tail = _size = 0;
     }
