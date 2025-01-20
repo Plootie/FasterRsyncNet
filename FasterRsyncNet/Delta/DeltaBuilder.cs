@@ -54,14 +54,13 @@ public class DeltaBuilder
         int optimalBufferSize = Math.Max(8192, (int)fileSignature.Chunks[0].Length);
         byte[] heapBuffer = ArrayPool<byte>.Shared.Rent(optimalBufferSize);
         byte[] fileByteBuffer = ArrayPool<byte>.Shared.Rent(normalChunkSize);
-        byte[] fileHashBuffer = ArrayPool<byte>.Shared.Rent(hashLength);
         #endregion
         
         try
         {
             Span<byte> fileBufferSpan = heapBuffer.AsSpan(0, normalChunkSize);
             Span<byte> fileByteBufferSpan = fileByteBuffer.AsSpan(0, normalChunkSize);
-            Span<byte> fileHashBufferSpan = fileHashBuffer.AsSpan(0, hashLength);
+            Span<byte> fileHashBufferSpan = stackalloc byte[hashLength];
             long lastMatch = newFileStream.Position;
             long filePosition = newFileStream.Position;
             uint checksum = 1;
@@ -129,7 +128,6 @@ public class DeltaBuilder
         {
             ArrayPool<byte>.Shared.Return(heapBuffer);
             ArrayPool<byte>.Shared.Return(fileByteBuffer);
-            ArrayPool<byte>.Shared.Return(fileHashBuffer);
         }
     }
 
