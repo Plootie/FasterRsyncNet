@@ -3,61 +3,47 @@ using FasterRsyncNet.Core;
 
 namespace FasterRsyncNet.Signature;
 
-public class SignatureWriter(Stream signatureStream) : ISignatureWriter
+public class SignatureWriter(Stream outputStream) : ISignatureWriter
 {
-    private readonly BinaryWriter _writer = new(signatureStream);
-    public Stream BaseStream { get; } = signatureStream;
+    public Stream BaseStream => _bw.BaseStream;
+    private readonly BinaryWriter _bw = new BinaryWriter(outputStream);
 
-    private static void WritePartialMetadata(BinaryWriter binaryWriter, SignatureMetadata metadata)
+    public void WriteHeader()
     {
-        binaryWriter.Write(FasterRsyncBinaryFormat.SignatureHeader.ToArray());
-        binaryWriter.Write(metadata.Version);
-        binaryWriter.Write((byte)metadata.NonCryptographicHashingAlgorithmOption);
-        binaryWriter.Write((byte)metadata.RollingChecksumOption);
-        binaryWriter.Write(metadata.ChunkSize);
+        _bw.Write(BinaryFormat.SignatureHeader.AsSpan());
     }
 
     public void WriteMetadata(SignatureMetadata metadata)
     {
-        WritePartialMetadata(_writer, metadata);
-        _writer.Write(metadata.Hash);
+        //TODO: Merge this into a single write
+        _bw.Write(metadata.Version);
+        _bw.Write(metadata.HashAlgorithmIdentifier);
+        _bw.Write(metadata.RollingHashAlgorithmIdentifier);
     }
 
-    //TODO: Benchmark this. I actually kinda doubt this will help performance even with larger hash sizes
-    public async Task WriteMetadataAsync(SignatureMetadata metadata)
+    public void WriteChunk(ReadOnlySpan<byte> hash, uint checksum)
     {
-        WritePartialMetadata(_writer, metadata);
-        await BaseStream.WriteAsync(metadata.Hash).ConfigureAwait(false);
-    }
-    
-    public void WriteChunk(ChunkSignature chunk)
-    {
-        _writer.Write(chunk.Hash);
-        _writer.Write(chunk.RollingChecksum);
+        _bw.Write(hash);
+        _bw.Write(checksum);
     }
 
-    public void WriteFinalChunkData(ChunkSignature chunk)
+    public void WriteFinalChunk(ReadOnlySpan<byte> hash, uint checksum, ushort length)
     {
-        _writer.Write(chunk.Length);
+        _bw.Write(length);
+        WriteChunk(hash, checksum);
     }
 
-    //TODO: Same as above. I doubt this is helping performance
-    public async Task WriteChunkAsync(ChunkSignature chunk)
+    public void Dispose()
     {
-        await BaseStream.WriteAsync(chunk.Hash).ConfigureAwait(false);
-        _writer.Write(chunk.RollingChecksum);
-    }
-
-    void IDisposable.Dispose()
-    {
-        _writer.Dispose();
-        //Rider screams at me about not having this, The docs say it has no affect if there is no finalizer though
         GC.SuppressFinalize(this);
+        _bw.Flush();
+        _bw.Dispose();
     }
-    
+
     public async ValueTask DisposeAsync()
     {
-        await _writer.DisposeAsync();
         GC.SuppressFinalize(this);
+        await Task.Run(() => _bw.Dispose());
+        await _bw.DisposeAsync();
     }
 }

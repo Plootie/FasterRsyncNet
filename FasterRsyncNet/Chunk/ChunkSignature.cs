@@ -1,14 +1,9 @@
-﻿using System.Runtime.InteropServices;
+﻿namespace FasterRsyncNet.Chunk;
 
-namespace FasterRsyncNet.Chunk;
-
-[StructLayout(LayoutKind.Sequential)]
-public readonly struct ChunkSignature(long startOffset, short length, byte[] hash, uint rollingChecksum)
+public readonly record struct ChunkSignature
 {
-    public long StartOffset { get; init; } = startOffset;
-    public short Length { get; init; } = length;
-    public byte[] Hash { get; init; } = hash;
-    public uint RollingChecksum { get; init; } = rollingChecksum;
-
-    public static int ChunkSize => sizeof(uint);
+    public required ulong Offset { get; init; }
+    public required ushort Length { get; init; }
+    public required byte[] Hash { get; init; }
+    public required uint RollingChecksum { get; init; }
 }

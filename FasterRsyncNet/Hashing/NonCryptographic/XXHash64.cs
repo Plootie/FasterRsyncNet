@@ -1,13 +1,14 @@
 ﻿using System.IO.Hashing;
 
-namespace FasterRsyncNet.Hash.HashingAlgorithms.NonCryptographic;
+namespace FasterRsyncNet.Hashing.NonCryptographic;
 
-//TODO: This feels... wrong to do. Look at revising this in the future
 public class XXHash64 : INonCryptographicHashingAlgorithm
 {
     private readonly XxHash64 _xxHash64 = new();
 
     public int HashLengthInBytes => _xxHash64.HashLengthInBytes;
+
+    public string AlgorithmIdentifier { get; } = "XXHash64";
 
     public void Append(byte[] source)
     {
@@ -57,5 +58,10 @@ public class XXHash64 : INonCryptographicHashingAlgorithm
     public bool TryGetHashAndReset(Span<byte> destination, out int bytesWritten)
     {
         return _xxHash64.TryGetHashAndReset(destination, out bytesWritten);
+    }
+
+    public void Reset()
+    {
+        _xxHash64.Reset();
     }
 }

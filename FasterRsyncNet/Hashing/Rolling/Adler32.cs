@@ -1,20 +1,18 @@
-﻿using System.Buffers;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
-using FasterRsyncNet.Core;
-using FasterRsyncNet.Signature;
 
-namespace FasterRsyncNet.Hash.HashingAlgorithms.Rolling;
+namespace FasterRsyncNet.Hashing.Rolling;
 
-public class Adler32 : IRollingChecksum
+public class Adler32 : IRollingChecksumAlgorithm
 {
     private const ushort Base = 65521;
     private const int BlockSize = 32;
     private const int MaxBytesPerLoop = 5552;
     private const int MaxBlocksPerLoop = MaxBytesPerLoop / BlockSize;
-    
-    public RollingChecksumOption RollingChecksumOption => RollingChecksumOption.Adler32;
+
+    public string AlgorithmIdentifier { get; } = "Adler32";
+
     public uint CalculateBlock(ReadOnlySpan<byte> block, uint start = 1)
     {
         uint s1 = start & 0xffff;
