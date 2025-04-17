@@ -46,71 +46,73 @@ public class SignatureBuilder
             RollingHashAlgorithmIdentifier = _checksumAlgorithm.AlgorithmIdentifier,
         });
         
-        WriteChunks(source, signatureWriter, progress);
+        BuildChunks(source, signatureWriter, progress);
     }
 
     //TODO: Clean up code formatting
-    private void WriteChunks(Stream source, ISignatureWriter signatureWriter, IProgress<double>? progress = null)
+    private void BuildChunks(Stream source, ISignatureWriter signatureWriter, IProgress<double>? progress = null)
     {
-        byte[]? heapBuffer =
-            MaxBufferSize > MaxStackBufferSize ? ArrayPool<byte>.Shared.Rent((int)MaxBufferSize) : null;
+        byte[]? heapBuffer = null;
+        if (MaxBufferSize > MaxStackBufferSize)
+        {
+            heapBuffer = ArrayPool<byte>.Shared.Rent((int)MaxBufferSize);
+        }
+
         Span<byte> buffer = heapBuffer == null
-            ? stackalloc byte[(int)MaxStackBufferSize]
-            : heapBuffer.AsSpan(0, (int)MaxBufferSize);
+            ? heapBuffer.AsSpan(0, (int)MaxBufferSize)
+            : stackalloc byte[(int)MaxStackBufferSize];
         
-        //TODO: Enforce limits for size of the hash buffer
         Span<byte> hashBuffer = stackalloc byte[_hashingAlgorithm.HashLengthInBytes];
-        
+
         try
         {
+            /*TODO: Should we do this? I cannot decide whether we should make it the users job to ensure the stream
+             is in the correct position for them when passing us the source stream*/
             if (source.Position != 0 && !source.CanSeek)
             {
-                throw new NotSupportedException("Stream is not seekable and not at the beginning.");   
+                throw new NotSupportedException("Stream is not seekable and not at the beginning.");
             }
             
-            source.Seek(0, SeekOrigin.Begin);    
-            
-            ushort bytesSubmitted = 0;
+            source.Seek(0, SeekOrigin.Begin);
+
+            int submitted = 0;
             uint rollingChecksum = 1;
 
             int read;
             while ((read = source.Read(buffer)) > 0)
             {
-                uint index = 0;
+                int index = 0;
                 while (index < read)
                 {
-                    long bytesToTake = Math.Min(read - index, ChunkSize - bytesSubmitted);
-                    Span<byte> chunkData = buffer.Slice((int)index, (int)bytesToTake);
+                    int bytesToTake = Math.Min(ChunkSize - submitted, read - index);
+                    ReadOnlySpan<byte> chunkData = buffer.Slice(index, bytesToTake);
                     
                     _hashingAlgorithm.Append(chunkData);
                     rollingChecksum = _checksumAlgorithm.CalculateBlock(chunkData, rollingChecksum);
                     
-                    bytesSubmitted += (ushort)bytesToTake;
-                    index += (uint)chunkData.Length;
-                    if (bytesSubmitted < ChunkSize) continue;
+                    submitted += bytesToTake;
+                    index += bytesToTake;
+
+                    if (submitted < ChunkSize) continue;
 
                     _hashingAlgorithm.GetHashAndReset(hashBuffer);
                     signatureWriter.WriteChunk(hashBuffer, rollingChecksum);
+                    submitted = 0;
                     rollingChecksum = 1;
-                    bytesSubmitted = 0;
                 }
-                //TODO: Look at whether we should move this. On small buffer sizes this may report excessively
-                progress?.Report((double)source.Position / source.Length);
-            }
-
-            if (bytesSubmitted > 0)
-            {
-                _hashingAlgorithm.GetHashAndReset(hashBuffer);
-                signatureWriter.WriteChunk(hashBuffer, rollingChecksum);
+                
+                double progressFraction = source.Length / (double)source.Position;
+                progress?.Report(progressFraction);
             }
             
-            signatureWriter.WriteFinalChunkLength(bytesSubmitted);
-            
+            signatureWriter.WriteFinalChunkLength((ushort)(submitted > 0 ? submitted : ChunkSize));
         }
         finally
         {
-            if(heapBuffer != null)
+            if (heapBuffer != null)
+            {
                 ArrayPool<byte>.Shared.Return(heapBuffer);
+            }
         }
     }
 }
