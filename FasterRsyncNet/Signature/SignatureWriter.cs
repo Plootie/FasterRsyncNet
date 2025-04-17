@@ -6,7 +6,7 @@ namespace FasterRsyncNet.Signature;
 public class SignatureWriter(Stream outputStream) : ISignatureWriter
 {
     public Stream BaseStream => _bw.BaseStream;
-    private readonly BinaryWriter _bw = new BinaryWriter(outputStream);
+    private readonly BinaryWriter _bw = new(outputStream);
 
     public void WriteHeader()
     {
@@ -17,6 +17,9 @@ public class SignatureWriter(Stream outputStream) : ISignatureWriter
     {
         //TODO: Merge this into a single write
         _bw.Write(metadata.Version);
+        _bw.Write(metadata.ChunkSize);
+        _bw.Write(metadata.ChunkCount);
+        _bw.Write(metadata.HashLength);
         _bw.Write(metadata.HashAlgorithmIdentifier);
         _bw.Write(metadata.RollingHashAlgorithmIdentifier);
     }
@@ -27,10 +30,9 @@ public class SignatureWriter(Stream outputStream) : ISignatureWriter
         _bw.Write(checksum);
     }
 
-    public void WriteFinalChunk(ReadOnlySpan<byte> hash, uint checksum, ushort length)
+    public void WriteFinalChunkLength(ushort length)
     {
         _bw.Write(length);
-        WriteChunk(hash, checksum);
     }
 
     public void Dispose()

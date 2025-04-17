@@ -40,6 +40,8 @@ public class SignatureBuilder
         {
             Version = BinaryFormat.FormatVersion,
             ChunkSize = ChunkSize,
+            ChunkCount = (ulong)Math.Ceiling((double)source.Length / ChunkSize),
+            HashLength = (ushort)_hashingAlgorithm.HashLengthInBytes,
             HashAlgorithmIdentifier = _hashingAlgorithm.AlgorithmIdentifier,
             RollingHashAlgorithmIdentifier = _checksumAlgorithm.AlgorithmIdentifier,
         });
@@ -61,8 +63,12 @@ public class SignatureBuilder
         
         try
         {
-            if(source.Position != 0 && source.CanSeek)
-                source.Seek(0, SeekOrigin.Begin);
+            if (source.Position != 0 && !source.CanSeek)
+            {
+                throw new NotSupportedException("Stream is not seekable and not at the beginning.");   
+            }
+            
+            source.Seek(0, SeekOrigin.Begin);    
             
             ushort bytesSubmitted = 0;
             uint rollingChecksum = 1;
@@ -88,12 +94,18 @@ public class SignatureBuilder
                     rollingChecksum = 1;
                     bytesSubmitted = 0;
                 }
+                //TODO: Look at whether we should move this. On small buffer sizes this may report excessively
                 progress?.Report((double)source.Position / source.Length);
             }
 
-            if (bytesSubmitted <= 0) return;
-            _hashingAlgorithm.GetHashAndReset(hashBuffer);
-            signatureWriter.WriteFinalChunk(hashBuffer, rollingChecksum, bytesSubmitted);
+            if (bytesSubmitted > 0)
+            {
+                _hashingAlgorithm.GetHashAndReset(hashBuffer);
+                signatureWriter.WriteChunk(hashBuffer, rollingChecksum);
+            }
+            
+            signatureWriter.WriteFinalChunkLength(bytesSubmitted);
+            
         }
         finally
         {

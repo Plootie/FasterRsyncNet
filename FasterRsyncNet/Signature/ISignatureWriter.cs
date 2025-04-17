@@ -8,5 +8,5 @@ public interface ISignatureWriter : IDisposable, IAsyncDisposable
     public void WriteHeader();
     public void WriteMetadata(SignatureMetadata metadata);
     public void WriteChunk(ReadOnlySpan<byte> hash, uint checksum);
-    public void WriteFinalChunk(ReadOnlySpan<byte> hash, uint checksum, ushort length);
+    public void WriteFinalChunkLength(ushort length);
 }
