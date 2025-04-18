@@ -2,15 +2,20 @@
 
 public class ByteArrayComparer : IEqualityComparer<byte[]>
 {
+    private readonly Dictionary<object, int> _hashCodeCache = new();
+    
     public bool Equals(byte[]? x, byte[]? y)
     {
         if (x == null || y == null) return x == y;
-        return x.Length == y.Length && x.SequenceEqual(y);
+        return x.SequenceEqual(y);
     }
 
     public int GetHashCode(byte[] obj)
     {
         ArgumentNullException.ThrowIfNull(obj);
+        
+        bool cached = _hashCodeCache.TryGetValue(obj, out int hashCode);
+        if(cached) return hashCode;
         
         unchecked
         {
@@ -19,6 +24,7 @@ public class ByteArrayComparer : IEqualityComparer<byte[]>
             {
                 hash = hash * 31 + b;
             }
+            _hashCodeCache[obj] = hash;
             return hash;
         }
     }
