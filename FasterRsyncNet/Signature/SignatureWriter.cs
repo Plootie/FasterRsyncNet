@@ -38,14 +38,12 @@ public class SignatureWriter(Stream outputStream) : ISignatureWriter
     public void Dispose()
     {
         GC.SuppressFinalize(this);
-        _bw.Flush();
         _bw.Dispose();
     }
 
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
-        await Task.Run(() => _bw.Dispose());
         await _bw.DisposeAsync();
     }
 }
