@@ -101,11 +101,19 @@ public class SignatureBuilder
                     rollingChecksum = 1;
                 }
                 
-                double progressFraction = source.Length / (double)source.Position;
+                double progressFraction = (double)source.Position / source.Length;
                 progress?.Report(progressFraction);
             }
-            
-            signatureWriter.WriteFinalChunkLength((ushort)(submitted > 0 ? submitted : ChunkSize));
+
+            bool remaining = submitted > 0;
+            int finalLength = ChunkSize;
+            if (remaining)
+            {
+                _hashingAlgorithm.GetHashAndReset(hashBuffer);
+                signatureWriter.WriteChunk(hashBuffer, rollingChecksum);
+                finalLength = submitted;
+            }
+            signatureWriter.WriteFinalChunkLength((ushort)finalLength);
         }
         finally
         {

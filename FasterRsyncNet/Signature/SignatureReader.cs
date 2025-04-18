@@ -12,10 +12,18 @@ public class SignatureReader(Stream inputStream) : ISignatureReader
     private readonly BinaryReader _br = new BinaryReader(inputStream);
     public bool CheckHeader()
     {
+        long prevPosition = BaseStream.Position;
+        BaseStream.Seek(0, SeekOrigin.Begin);
+        
         Span<byte> headerBuffer = stackalloc byte[BinaryFormat.SignatureHeader.Length];
         int read = _br.Read(headerBuffer);
+        
+        if(prevPosition > 0)
+            BaseStream.Seek(prevPosition, SeekOrigin.Begin);
+        
         if(read != BinaryFormat.SignatureHeader.Length)
-            throw new InvalidDataException("Signature header length could not be read from the stream.");
+            throw new InvalidDataException("Signature header could not be read from the stream.");
+        
         return headerBuffer.SequenceEqual(BinaryFormat.SignatureHeader.AsSpan());
     }
 
@@ -50,67 +58,43 @@ public class SignatureReader(Stream inputStream) : ISignatureReader
 
     public Signature ReadSignature(SignatureMetadata metadata)
     {
-        //TODO: Clean this up
-        int metadataSize = sizeof(byte) + (sizeof(ushort) * 2) + metadata.HashAlgorithmIdentifier.Length + metadata.RollingHashAlgorithmIdentifier.Length;
-        int headerSize = BinaryFormat.SignatureHeader.Length;
-        int targetStreamPosition = metadataSize + headerSize + 1;
+        //TODO: Find a way to not need to calculate this. Should we skip to begin and re-read???
+        int metadataSize = sizeof(byte) + sizeof(ushort) * 2 + 
+                           metadata.HashAlgorithmIdentifier.Length +
+                           metadata.RollingHashAlgorithmIdentifier.Length;
+        int targetStreamPosition = BinaryFormat.SignatureHeader.Length + metadataSize;
         if (BaseStream.Position != targetStreamPosition)
         {
             if(!BaseStream.CanSeek)
-                throw new DataException("Stream is not in position to read chunk data and is not seekable.");
-            BaseStream.Seek(targetStreamPosition, SeekOrigin.Begin);
-        }
-        List<ChunkSignature> chunks = new List<ChunkSignature>((int)metadata.ChunkCount);
-
-        const int largestBufferSize = 4096;
-        //TODO: Clean up this buffer allocation
-        int idealBufferSize = metadata.ChunkSize * (int)Math.Floor((double)largestBufferSize / metadata.ChunkSize);
-        byte[] heapBuffer = ArrayPool<byte>.Shared.Rent(idealBufferSize);
-        //TODO: TRY-CATCH!
-        Span<byte> chunkBuffer = heapBuffer.AsSpan(0, idealBufferSize);
-
-        //The idea behind this is to share references to hashes that have already been read instead of keeping
-        //Duplicate hash arrays in memory. This makes reading more expensive for a potentially smaller object.
-        HashSet<byte[]> chunkHashes = new HashSet<byte[]>(new ByteArrayComparer());
-        byte[] temporaryHashBuffer = new byte[metadata.HashLength];
-        int read;
-        //TODO: Potentially replace the chunks.Count with it's own counter to skirt the property penalty
-        while ((read = BaseStream.Read(chunkBuffer)) > 0)
-        {
-            for (int i = 0; i < read / metadata.ChunkSize; i++)
-            {
-                ReadOnlySpan<byte> chunkData = chunkBuffer.Slice(i * metadata.ChunkSize, metadata.ChunkSize);
-                
-                chunkData[..metadata.HashLength].CopyTo(temporaryHashBuffer);
-                
-                byte[] chunkHash; //C# is odd and despite this having the MaybeNullWhen(false) attrib and this being guarded
-                //by a statement to cover the possibility for null, it still warns about potentially casting to null
-                if (!chunkHashes.TryGetValue(temporaryHashBuffer, out chunkHash))
-                {
-                    chunkHash = new byte[metadata.HashLength];
-                    Array.Copy(temporaryHashBuffer, 0, chunkHash, 0, metadata.HashLength);
-                    chunkHashes.Add(chunkHash);
-                }
-
-                uint checksum = BitConverter.ToUInt32(chunkData[(metadata.HashLength + 1)..]);
-
-                ChunkSignature chunkSig = new()
-                {
-                    Hash = chunkHash,
-                    Length = metadata.ChunkSize,
-                    Offset = (ulong)i * metadata.ChunkSize,
-                    RollingChecksum = checksum
-                };
-                
-                chunks.Add(chunkSig);
-            }
+                throw new NotSupportedException("Stream is not in position to read chunk data and is not seekable.");
+            //BaseStream.Seek(targetStreamPosition, SeekOrigin.Begin);
         }
         
-        //Process final chunk
-        //TODO: Rework this so we don't have to retroactively do this (Also i believe rarely this can fail currently!)
-        ChunkSignature lastChunk = chunks[^1];
-        chunks[^1] = lastChunk with { Length = BitConverter.ToUInt16(chunkBuffer.Slice(read - sizeof(ushort), sizeof(ushort))) };
-        return new Signature(metadata, [..chunks]);
+        List<ChunkSignature> chunks = new((int)metadata.ChunkCount);
+        Span<byte> chunkHashBuffer = stackalloc byte[metadata.HashLength];
+        for (ulong i = 0; i < metadata.ChunkCount; i++)
+        {
+            int debug = _br.Read(chunkHashBuffer);
+            uint rollingChecksum = _br.ReadUInt32();
+            ulong position = metadata.ChunkSize * i;
+            byte[] chunkHash = chunkHashBuffer.ToArray();
+
+            chunks.Add(new ChunkSignature()
+            {
+                Hash = [..chunkHash],
+                Length = metadata.ChunkSize,
+                Offset = position,
+                RollingChecksum = rollingChecksum
+            });
+        }
+    
+        ushort len = _br.ReadUInt16();
+        chunks[^1] = chunks[^1] with { Length = len };
+        return new Signature
+        {
+            Chunks = [..chunks],
+            Metadata = metadata
+        };
     }
 
     public void Dispose()

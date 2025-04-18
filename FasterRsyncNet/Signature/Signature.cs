@@ -3,8 +3,8 @@ using FasterRsyncNet.Chunk;
 
 namespace FasterRsyncNet.Signature;
 
-public class Signature(SignatureMetadata metadata, ImmutableArray<ChunkSignature> chunks)
+public record Signature
 {
-    public SignatureMetadata Metadata { get; init; } = metadata;
-    public ImmutableArray<ChunkSignature> Chunks { get; init; } = chunks;
+    public required SignatureMetadata Metadata { get; init; }
+    public required ImmutableArray<ChunkSignature> Chunks { get; init; }
 }
