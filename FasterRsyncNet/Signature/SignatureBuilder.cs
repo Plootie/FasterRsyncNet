@@ -101,8 +101,7 @@ public class SignatureBuilder
                     rollingChecksum = 1;
                 }
                 
-                double progressFraction = (double)source.Position / source.Length;
-                progress?.Report(progressFraction);
+                progress?.Report((double)source.Position / source.Length);
             }
 
             bool remaining = submitted > 0;
