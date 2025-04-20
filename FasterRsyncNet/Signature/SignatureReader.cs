@@ -53,7 +53,8 @@ public class SignatureReader(Stream inputStream) : ISignatureReader
 
     public Signature ReadSignature()
     {
-        throw new NotImplementedException();
+        SignatureMetadata metadata = ReadMetadata();
+        return ReadSignature(metadata);
     }
 
     public Signature ReadSignature(SignatureMetadata metadata)
