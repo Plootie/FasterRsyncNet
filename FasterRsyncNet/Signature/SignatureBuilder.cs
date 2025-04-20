@@ -59,8 +59,8 @@ public class SignatureBuilder
         }
 
         Span<byte> buffer = heapBuffer == null
-            ? heapBuffer.AsSpan(0, (int)MaxBufferSize)
-            : stackalloc byte[(int)MaxStackBufferSize];
+            ? stackalloc byte[(int)MaxStackBufferSize]
+            : heapBuffer.AsSpan(0, (int)MaxBufferSize);
         
         Span<byte> hashBuffer = stackalloc byte[_hashingAlgorithm.HashLengthInBytes];
 
