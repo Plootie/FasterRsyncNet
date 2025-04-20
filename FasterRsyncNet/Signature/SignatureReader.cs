@@ -74,15 +74,15 @@ public class SignatureReader(Stream inputStream) : ISignatureReader
         */
         
         List<ChunkSignature> chunks = new((int)metadata.ChunkCount);
-        Span<byte> chunkHashBuffer = stackalloc byte[metadata.HashLength];
+        Span<byte> buffer = stackalloc byte[metadata.HashLength + sizeof(uint)];
         for (ulong i = 0; i < metadata.ChunkCount; i++)
         {
-            int debug = _br.Read(chunkHashBuffer);
-            uint rollingChecksum = _br.ReadUInt32();
+            _ = BaseStream.Read(buffer);
+            uint rollingChecksum = BitConverter.ToUInt32(buffer.Slice(metadata.HashLength, sizeof(uint)));
             ulong position = metadata.ChunkSize * i;
-            byte[] chunkHash = chunkHashBuffer.ToArray();
+            byte[] chunkHash = buffer.Slice(0, metadata.HashLength).ToArray();
 
-            chunks.Add(new ChunkSignature()
+            chunks.Add(new ChunkSignature
             {
                 Hash = [..chunkHash],
                 Length = metadata.ChunkSize,
@@ -92,7 +92,8 @@ public class SignatureReader(Stream inputStream) : ISignatureReader
         }
     
         ushort len = _br.ReadUInt16();
-        chunks[^1] = chunks[^1] with { Length = len };
+        ChunkSignature lastChunk = chunks[^1];
+        chunks[^1] = lastChunk with { Length = len };
         return new Signature
         {
             Chunks = [..chunks],
