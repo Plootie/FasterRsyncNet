@@ -59,6 +59,7 @@ public class SignatureReader(Stream inputStream) : ISignatureReader
     public Signature ReadSignature(SignatureMetadata metadata)
     {
         //TODO: Find a way to not need to calculate this. Should we skip to begin and re-read???
+        /*
         int metadataSize = sizeof(byte) + sizeof(ushort) * 2 + 
                            metadata.HashAlgorithmIdentifier.Length +
                            metadata.RollingHashAlgorithmIdentifier.Length;
@@ -69,6 +70,7 @@ public class SignatureReader(Stream inputStream) : ISignatureReader
                 throw new NotSupportedException("Stream is not in position to read chunk data and is not seekable.");
             //BaseStream.Seek(targetStreamPosition, SeekOrigin.Begin);
         }
+        */
         
         List<ChunkSignature> chunks = new((int)metadata.ChunkCount);
         Span<byte> chunkHashBuffer = stackalloc byte[metadata.HashLength];
